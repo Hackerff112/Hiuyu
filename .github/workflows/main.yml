@@ -1,0 +1,33 @@
+name: Arch-Linux-Production-Environment
+on: workflow_dispatch
+
+jobs:
+  deploy_arch:
+    runs-on: ubuntu-latest # سنستخدم أوبنتو كقاعدة لتشغيل Arch داخل Docker/Chroot
+    steps:
+      - name: Initialize Arch Linux Environment
+        run: |
+          # تثبيت أدوات إنشاء بيئة Arch
+          sudo apt update
+          sudo apt install -y pixz
+          
+          # سحب صورة Arch Linux الرسمية وتشغيلها
+          docker run -d --name arch_vps --privileged -it archlinux:latest /bin/bash
+          
+      - name: Provisioning Arch Tools
+        run: |
+          # تحديث النظام وتثبيت الأساسيات (SSH, tmate, Python) داخل الحاوية
+          docker exec arch_vps pacman -Syu --noconfirm
+          docker exec arch_vps pacman -S --noconfirm tmate openssh python nodejs npm git
+          
+      - name: Execute Tmate Connection
+        run: |
+          # تشغيل tmate داخل بيئة Arch وتصدير رابط الاتصال في الـ Logs
+          docker exec arch_vps tmate -S /tmp/tmate.sock new-session -d
+          docker exec arch_vps tmate -S /tmp/tmate.sock wait tmate-ready
+          echo "--- ARCH LINUX VPS IS READY ---"
+          docker exec arch_vps tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+          echo "--- COPY THE ABOVE SSH COMMAND ---"
+          # إبقاء الجلسة حية لمدة 6 ساعات (الحد الأقصى لـ GitHub)
+          sleep 21600
+          
